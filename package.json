@@ -8,5 +8,13 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "fp-ts": "^2.16.2",
+    "xstate": "^5.9.1",
+    "zod": "^3.22.4"
+  }
 }
