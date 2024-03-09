@@ -4,7 +4,7 @@ import {
 	registerNewDigimon,
 
 } from "../utils";
-import { CardColor, DigimonAttribute, DigimonForm, DigimonLevel, DigimonType } from "../enums";
+import { CardColor, CardType, DigimonAttribute, DigimonForm, DigimonLevel, DigimonType } from "../enums";
 import { isInPlay, isTopOfStack, nameContains, nameIs } from "../tests";
 import { pipe } from "fp-ts/function";
 import { map } from "fp-ts/Option";
@@ -65,8 +65,9 @@ export default registerNewDigimon<BT13_009_HuckmonState>({
 				ignoreCost: true,
 			} as const satisfies Partial<DigivolutionOptions>;
 
-			// We query the hand for [BaoHuckmon]s that we can digivolve into
+			// We query the hand for [BaoHuckmon] digimons that we can digivolve into
 			const getBaoHuckmons = () => ctx.query.hand()
+				.filter(card => card.type === CardType.DIGIMON)
 				.filter(card => nameIs(card, "BaoHuckmon", {
 					caseInsensitive: true,
 				}))

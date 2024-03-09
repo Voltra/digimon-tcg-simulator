@@ -9,6 +9,40 @@ export interface Player {
 }
 
 export interface DigimonStack {
+	/**
+	 * Query the cards in the stack (from bottom to top)
+	 */
+	query(): Sequence<GameCard<any>>;
+
+	/**
+	 * Get the top card of this stack
+	 */
+	topCard(): GameCard<any>;
+
+	/**
+	 * Give the stack <Security Atk +{@link n}>
+	 * @param [n = 1] - The amount of security attack to give (must be > 0)
+	 */
+	secAtkPlus(n?: number): void;
+
+	/**
+	 * Give the stack <Security Atk -{@link n}>
+	 * @param [n = 1] - The amount of security attack to remove (must be > 0)
+	 */
+	secAtkMinus(n?: number): void;
+
+	/**
+	 * Give the stack <+{@link dp} DP>
+	 * @param dp - The amount of DP to gain (must be > 0 and a multiple of 1000)
+	 */
+	gainDP(dp: number): void;
+
+	/**
+	 * Give the stack <-{@link dp} DP>
+	 * @param dp - The amount of DP to gain (must be > 0 and a multiple of 1000)
+	 */
+	loseDP(dp: number): void;
+
 	[k: string]: any;
 }
 
@@ -28,6 +62,28 @@ export interface DigivolutionOptions {
 	 */
 	ignoreColor: boolean;
 }
+
+export interface HardPlayOptions {
+	/**
+	 * Whether we should ignore the play cost
+	 * @default false
+	 */
+	ignoreCost: boolean;
+
+	/**
+	 * Whether we should ignore color requirements
+	 */
+	ignoreColor: boolean;
+}
+
+export interface PlayByEffectOptions extends HardPlayOptions {
+	/**
+	 * The card whose effect played the given card
+	 */
+	playedBy: GameCard<unknown>;
+}
+
+export type AttackTarget<LocalState = undefined> = "security"|GameCard<LocalState>;
 
 export interface GameCard<LocalState = undefined> extends NewCardMeta {
 	/**
@@ -93,6 +149,14 @@ export interface CardScriptContextQuery {
 	 * @param [options] - The digivolution options to use
 	 */
 	canDigivolveInto(into: GameCard<unknown>, options?: Partial<DigivolutionOptions>): boolean;
+
+	/**
+	 * Get the current amount of memory for this player
+	 * @returns a positive number or zero if it's still the player's turn,
+	 * a negative number if it's the opponent's turn or if it would be the opponent's turn
+	 * after the last action is processed.
+	 */
+	memory(): number;
 }
 
 export interface CardScriptContextPlayerEvents {
@@ -108,15 +172,32 @@ export interface CardScriptContextPlayerEvents {
 
 	/**
 	 * Listen for when you play a card (hard-played or by effect)
+	 * @note belongsTo(card, ctx.card.owner) will always be true at the top level of {@link listener}
+	 * @note isInPlay(card) will always be true at the top level of {@link listener}
 	 */
 	onPlay(listener: (card: GameCard<unknown>) => void): void;
+
+	/**
+	 * Listen for when memory changes during this turn (listener is removed at the end of the turn)
+	 */
+	onMemoryChangeThisTurn(listener: (fromMemory: number, toMemory: number) => void): void;
 }
 
 export interface CardScriptContextCardEvents {
 	/**
 	 * Listen for when this card attacks
 	 */
-	onAttacking(listener: (/* TODO: Add relevant arguments */) => void): void;
+	onAttacking(listener: (attackTarget: AttackTarget<unknown>) => void): void;
+
+	/**
+	 * Listen for when this card attacks security
+	 */
+	onAttackingSecurity(listener: () => void): void;
+
+	/**
+	 * Listen for when this card attacks another digimon
+	 */
+	onAttackingDigimon(listener: (attackTarget: GameCard<unknown>) => void): void;
 }
 
 export interface CardScriptContextGlobalEvents {
@@ -263,6 +344,75 @@ export interface CardScriptContextActions {
 	 * @param [options] - The digivolution options to use
 	 */
 	digivolveInto(into: GameCard<unknown>, options?: Partial<DigivolutionOptions>): void;
+
+	/**
+	 * Hard play the given card
+	 * @param card - The card to play
+	 * @param options - The play options to use
+	 */
+	hardPlayEffect(card: GameCard<unknown>, options?: Partial<HardPlayOptions>): void;
+
+	/**
+	 * Play the given card by an effect
+	 * @param card - The card to play
+	 * @param options - The play options to use
+	 */
+	playByEffect(card: GameCard<unknown>, options: Partial<PlayByEffectOptions> & Required<Pick<PlayByEffectOptions, "playedBy">>): void;
+
+	/**
+	 * Ask the user to pick an attack target using the given digimon
+	 * @param attacker - The card to attack with
+	 * @param [canAttackOnOpponentsTurn = false] - Whether we can attack on the opponent's turn (or if turn would pass)
+	 */
+	pickAttackTarget(attacker: GameCard<unknown>, canAttackOnOpponentsTurn?: boolean): Option<AttackTarget<any>>;
+
+	/**
+	 * Perform an attack on security
+	 */
+	attackSecurity(attacker: GameCard<unknown>): void;
+
+	/**
+	 * Perform an attack by the given digimon on the other given digimon
+	 */
+	attackDigimon(attackOptions: {
+		/**
+		 * The digimon that attacks
+		 */
+		by: GameCard<unknown>,
+
+		/**
+		 * The digimon being attacked
+		 */
+		on: GameCard<unknown>,
+
+		/**
+		 * Whether we can attack on the opponent's turn (or if turn would pass)
+		 * @default false
+		 */
+		canAttackOnOpponentsTurn?: boolean,
+	}): void;
+
+	/**
+	 * Declare an attack by the given digimon
+	 * @param attacker - The digimon that attacks
+	 * @param [canAttackOnOpponentsTurn = false] - Whether we can attack on the opponent's turn (or if turn would pass)
+	 * @example It's the same as doing
+	 *  pipe(
+	 *      actions.pickAttackTarget(myDigimon, onOpTurn),
+	 *      map(attackTarget => {
+	 *          if (attackTarget === "security") {
+	 *              actions.attackSecurity(myDigimon);
+	 *          } else {
+	 *              actions.attackDigimon({
+	 *                  by: myDigimon,
+	 *                  on: attackTarget,
+	 *                  canAttackOnOpponentsTurn: onOpTurn,
+	 *              });
+	 *          }
+	 *      }),
+	 *  );
+	 */
+	declareAttack(attacker: GameCard<unknown>, canAttackOnOpponentsTurn?: boolean): void;
 }
 
 export interface CardScriptContext<Meta extends NewCardMeta, LocalState = undefined> {
