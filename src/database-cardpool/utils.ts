@@ -1,5 +1,5 @@
 import { NewCardMeta, newCardMetaSchema, NewDigimonMeta, newDigimonMetaSchema } from "./schemas";
-import { CardLocation, CardType } from "./enums";
+import { CardLocation, CardTrait, CardType } from "./enums";
 import { z } from "zod";
 import Sequence from "sequency";
 import { Option } from "fp-ts/Option";
@@ -13,6 +13,11 @@ export interface DigimonStack {
 	 * Query the cards in the stack (from bottom to top)
 	 */
 	query(): Sequence<GameCard<any>>;
+
+	/**
+	 * Check whether the stack is currently in the play area
+	 */
+	isInPlay(): boolean;
 
 	/**
 	 * Get the top card of this stack
@@ -42,6 +47,18 @@ export interface DigimonStack {
 	 * @param dp - The amount of DP to gain (must be > 0 and a multiple of 1000)
 	 */
 	loseDP(dp: number): void;
+
+	/**
+	 * Add the given card as the bottom source of this stack
+	 * @param card - The card to put at the bottom of the stack
+	 */
+	bottomSource(card: GameCard<unknown>): void;
+
+	/**
+	 * Add the given card as the top source (i.e. the card below the top card) of this stack
+	 * @param card - The card to put at the top of the stack
+	 */
+	topSource(card: GameCard<unknown>): void;
 
 	[k: string]: any;
 }
@@ -124,6 +141,13 @@ export interface GameCard<LocalState = undefined> extends NewCardMeta {
 	 */
 	getName(): string;
 
+	/**
+	 * Get the resolved traits of this card.
+	 * This takes into account overrides and
+	 * different card types (e.g. Digimon, Option).
+	 */
+	getTraits(): CardTrait[];
+
 	[k: string]: any;
 }
 
@@ -142,6 +166,21 @@ export interface CardScriptContextQuery {
 	 * Create a new query builder for the cards currently on the board
 	 */
 	boardQuery(): Sequence<GameCard<any>>;
+
+	/**
+	 * Create a new query builder for the cards currently in trash
+	 */
+	trash(): Sequence<GameCard<any>>;
+
+	/**
+	 * Create a new query builder for the cards currently in the enemy's trash
+	 */
+	enemyTrash(): Sequence<GameCard<any>>;
+
+	/**
+	 * Create a new query builder for the cards currently in any player's trash
+	 */
+	allTrash(): Sequence<GameCard<any>>;
 
 	/**
 	 * Determine whether we can digivolve this card into the given card
@@ -413,9 +452,15 @@ export interface CardScriptContextActions {
 	 *  );
 	 */
 	declareAttack(attacker: GameCard<unknown>, canAttackOnOpponentsTurn?: boolean): void;
+
+	/**
+	 * Forcefully activate one of the [When Digivolving] effect of the given digimon (prompts the user for which one to pick)
+	 * @param digimon
+	 */
+	forceActivateOneWhenDigivolvingEffect(digimon: GameCard<unknown>): void;
 }
 
-export interface CardScriptContext<Meta extends NewCardMeta, LocalState = undefined> {
+export interface CardScriptContext<Meta extends NewCardMeta, LocalState> {
 	// Properties
 	meta: Meta;
 	card: GameCard<LocalState>;
@@ -449,21 +494,22 @@ export interface CardScriptContext<Meta extends NewCardMeta, LocalState = undefi
 	[k: string]: any;
 }
 
-export type CardScript<Meta extends NewCardMeta, LocalState = undefined> = (context: CardScriptContext<Meta, LocalState>) => void;
+export type CardScript<Meta extends NewCardMeta, LocalState> = (context: CardScriptContext<Meta, LocalState>) => void;
 
-export interface LocalStateMeta<LocalState = undefined> {
+export type LocalStateMeta<LocalState> = LocalState extends undefined ? {} : {
 	initialLocalState: LocalState;
-	validateLocalState: LocalState extends undefined ? undefined : (state: LocalState, zod: typeof z) => LocalState,
+	validateLocalState: (state: LocalState, zod: typeof z) => LocalState,
 }
 
-export interface CardDefinition<Meta extends NewCardMeta, LocalState = undefined> extends NewCardMeta, LocalStateMeta<LocalState> {
+// @ts-ignore We know it's safe to extend from LocalStateMeta<LocalState>
+export interface CardDefinition<Meta extends NewCardMeta, LocalState> extends NewCardMeta, LocalStateMeta<LocalState> {
 	script: CardScript<Meta, LocalState>;
 }
 
 export const registerNewCard = <LocalState = undefined>(meta: NewCardMeta & LocalStateMeta<LocalState>, script: CardScript<NewCardMeta, LocalState>): CardDefinition<typeof meta, LocalState> => {
 	const validMeta = newCardMetaSchema()
 		.passthrough()
-		.parse(meta);
+		.parse(meta) satisfies NewCardMeta;
 
 	// @ts-ignore We know from the type system and validation passthrough that we have the right type
 	return {
@@ -480,13 +526,18 @@ export const registerNewDigimon = <LocalState = undefined>(meta: Omit<NewDigimon
 			type: CardType.DIGIMON,
 		}) satisfies NewDigimonMeta;
 
-	const validLocalState = meta.validateLocalState?.(meta.initialLocalState, z);
+	if ("validateLocalState" in meta && "initialLocalState" in meta) {
+		const validLocalState = meta.validateLocalState(meta.initialLocalState, z);
+
+		// @ts-ignore We know from the type system and validation passthrough that we have the right type
+		return registerNewCard<LocalState>({
+			...validMeta,
+			// @ts-ignore (We know it does the right thing)
+			initialLocalState: validLocalState,
+		}, script);
+	}
 
 	// @ts-ignore We know from the type system and validation passthrough that we have the right type
-	return registerNewCard<LocalState>({
-		...validMeta,
-		// @ts-ignore (We know it does the right thing)
-		initialLocalState: validLocalState,
-	}, script);
+	return registerNewCard<LocalState>(validMeta, script);
 };
 

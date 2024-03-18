@@ -1,4 +1,5 @@
 {
+	"exclude": ["./node_modules/", "./bkp/"],
 	"compilerOptions": {
 		/* Visit https://aka.ms/tsconfig to read more about this file */
 
@@ -14,7 +15,7 @@
 		// "disableReferencedProjectLoad": true,             /* Reduce the number of projects loaded automatically by TypeScript. */
 
 		/* Language and Environment */
-		"target": "es2015",
+		"target": "esnext",
 		/* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
 		// "lib": [],                                        /* Specify a set of bundled library declaration files that describe the target runtime environment. */
 		// "jsx": "preserve",                                /* Specify what JSX code is generated. */
@@ -31,7 +32,7 @@
 		/* Modules */
 		"module": "commonjs",
 		/* Specify what module code is generated. */
-		"rootDir": "./",
+		"rootDir": "./src",
 		/* Specify the root folder within your source files. */
 		// "moduleResolution": "node10",                     /* Specify how TypeScript looks up a file from a given module specifier. */
 		// "baseUrl": "./",                                  /* Specify the base directory to resolve non-relative module names. */

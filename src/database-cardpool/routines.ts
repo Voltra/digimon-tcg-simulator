@@ -23,13 +23,17 @@ export const gainBlitzForTheTurn = <Meta extends NewCardMeta, LocalState>(ctx: C
 		});
 	};
 
+	let hasGivenBlitz = false;
+
 	if (ctx.query.memory() < 0) {
 		blitz();
+		hasGivenBlitz = true;
 	}
 
 	ctx.thisPlayerEvents.onMemoryChangeThisTurn((fromMemory, toMemory) => {
-		if (toMemory < 0) {
+		if (!hasGivenBlitz && toMemory < 0) {
 			blitz();
+			hasGivenBlitz = true;
 		}
 	});
 };

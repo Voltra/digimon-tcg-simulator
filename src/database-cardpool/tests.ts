@@ -1,5 +1,5 @@
-import { GameCard, Player } from "./utils";
-import { CardLocation } from "./enums";
+import { DigimonStack, GameCard, Player } from "./utils";
+import { CardLocation, CardTrait, DigimonType } from "./enums";
 
 export const isSameCardAs = (card: GameCard<any>, expected: GameCard<any>) => card === expected;
 
@@ -34,6 +34,10 @@ export const belongsToPlayer = <LocalState>(card: GameCard<LocalState>, player: 
 
 export const isInPlay = <LocalState>(card: GameCard<LocalState>) => card.location === CardLocation.PLAY_AREA;
 
+export const stackIsInPlay = (stack: DigimonStack) => stack.isInPlay();
+
 export const isTopOfStack = <LocalState>(card: GameCard<LocalState>) => isSameCardAs(card.stack.topCard(), card);
 
 export const isInRaising = <LocalState>(card: GameCard<LocalState>) => card.location === CardLocation.RAISING;
+
+export const hasTrait = <LocalState>(card: GameCard<LocalState>, trait: CardTrait) => card.getTraits().includes(trait);

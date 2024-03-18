@@ -1,3 +1,5 @@
+import { ValuesOf } from "../types";
+
 export enum CardLocation {
 	EGG_DECK = "egg deck",
 	DECK = "deck",
@@ -226,3 +228,15 @@ export enum DigimonAttribute {
 	UNKNOWN = "Unknown",
 	FREE = "Free",
 }
+
+export enum OptionTrait {}
+
+export enum TamerTrait {}
+
+export const CardTrait = Object.freeze({
+	...DigimonType,
+	...OptionTrait,
+	...TamerTrait,
+} as const);
+
+export type CardTrait = ValuesOf<typeof CardTrait>;

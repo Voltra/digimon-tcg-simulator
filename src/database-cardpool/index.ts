@@ -10,5 +10,5 @@ export const databaseCardpool = asSequence([
 	bt7Cards,
 	bt13Cards,
 ])
-	.flatMap(set => asSequence(set as unknown as Map<NewCardMeta["id"], CardDefinition<NewCardMeta>>))
+	.flatMap(set => asSequence(set as unknown as Map<NewCardMeta["id"], CardDefinition<NewCardMeta, unknown>>))
 	.toMap();

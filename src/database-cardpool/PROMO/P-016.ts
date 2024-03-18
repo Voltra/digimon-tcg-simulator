@@ -14,7 +14,7 @@ import { chainModifiers, inPlay, mainEffect, whenTopOfStack } from "../scriptMod
 // Inheritable: N.A.
 
 export const p016DiaboromonStateSchema = () => z.object({
-	diaboroCount: z.number().int(),
+	diaboroCount: z.number().int().positive(),
 });
 
 export type P016_DiaboromonState = z.infer<ReturnType<typeof p016DiaboromonStateSchema>>;
